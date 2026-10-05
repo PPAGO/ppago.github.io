@@ -425,6 +425,11 @@
         let currentTab = '갤럭시';
         let selectedModelId = null;
 
+        function handleImgError(img) {
+            img.onerror = null;
+            img.src = 'https://via.placeholder.com/150/F2F4F6/8B95A1?text=Phone';
+        }
+
         function openDirectProvinceModal(provName) {
             selectedProvince = provName;
             selectedCity = `${provName} 전체`;
@@ -484,10 +489,10 @@
             cities.forEach(city => {
                 const isSelected = city === selectedCity;
                 const btn = document.createElement('button');
-                btn.className = `w-full text-left px-4 py-3.5 text-xs font-bold transition flex justify-between items-center ${
-                    isSelected ? 'text-toss-blue bg-toss-lightBlue/20 font-extrabold' : 'text-toss-darkSecondary hover:bg-slate-50'
+                btn.className = `w-full text-left px-4 py-3 text-xs font-bold transition flex items-center justify-between ${
+                    isSelected ? 'text-toss-blue font-extrabold bg-blue-50/50' : 'text-toss-darkSecondary hover:bg-slate-50'
                 }`;
-                btn.innerHTML = `<span>${city}</span>${isSelected ? '<i class="fa-solid fa-check text-xs text-toss-blue"></i>' : ''}`;
+                btn.innerHTML = `<span>${city}</span>${isSelected ? '<i class="fa-solid fa-check text-toss-blue text-xs"></i>' : ''}`;
                 btn.onclick = () => {
                     selectedCity = city;
                     renderCities();
@@ -496,38 +501,58 @@
             });
         }
 
-        function switchRegionTab(tab) {
+        function switchRegionTab(type) {
             const directBtn = document.getElementById('rtab-direct');
             const gpsBtn = document.getElementById('rtab-gps');
             const directView = document.getElementById('region-direct-view');
             const gpsView = document.getElementById('region-gps-view');
 
-            if (tab === 'direct') {
+            if (type === 'direct') {
                 directBtn.className = "pb-2.5 text-toss-blue border-b-2 border-toss-blue transition-colors";
                 gpsBtn.className = "pb-2.5 text-toss-grey border-b-2 border-transparent transition-colors flex items-center space-x-1";
                 directView.classList.remove('hidden');
                 directView.classList.add('flex');
+                gpsView.classList.remove('flex');
                 gpsView.classList.add('hidden');
             } else {
                 gpsBtn.className = "pb-2.5 text-toss-blue border-b-2 border-toss-blue transition-colors flex items-center space-x-1";
                 directBtn.className = "pb-2.5 text-toss-grey border-b-2 border-transparent transition-colors";
                 gpsView.classList.remove('hidden');
                 gpsView.classList.add('flex');
+                directView.classList.remove('flex');
                 directView.classList.add('hidden');
             }
         }
 
+        function getGPSLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        selectedProvince = '서울';
+                        selectedCity = '강남구';
+                        alert('가장 가까운 검증 성지 지역(서울 강남구)으로 자동 설정되었습니다.');
+                        confirmRegion();
+                    },
+                    (error) => {
+                        alert('위치 정보를 가져올 수 없습니다. 지역을 직접 선택해 주세요.');
+                    }
+                );
+            } else {
+                alert('이 브라우저에서는 위치 서비스를 지원하지 않습니다.');
+            }
+        }
+
         function confirmRegion() {
-            const text = selectedCity.includes('전체') ? `${selectedProvince} 전체` : `${selectedProvince} ${selectedCity}`;
             const emoji = regionEmojis[selectedProvince] || '📍';
+            const displayLabel = selectedCity === `${selectedProvince} 전체` ? `${selectedProvince} 전체` : selectedCity;
             
-            document.getElementById('selected-region-display').innerHTML = `<span>${emoji} ${text}</span>`;
-            document.getElementById('modal-region-badge').innerText = `${emoji} ${text} 성지 시세`;
-
-            document.querySelectorAll('.region-chip').forEach(btn => {
-                btn.className = "region-chip bg-white border border-toss-border text-toss-darkSecondary font-bold text-xs px-4 py-2.5 rounded-2xl transition hover:bg-toss-lightGrey active:scale-95 whitespace-nowrap flex items-center space-x-1";
+            document.getElementById('selected-region-display').innerHTML = `<span>${emoji} ${displayLabel}</span>`;
+            document.getElementById('modal-region-badge').innerHTML = `${emoji} ${displayLabel} 성지 시세`;
+            
+            // 빠른 선택 칩 스타일 업데이트
+            document.querySelectorAll('.region-chip').forEach(chip => {
+                chip.className = "region-chip bg-white border border-toss-border text-toss-darkSecondary font-bold text-xs px-4 py-2.5 rounded-2xl transition hover:bg-toss-lightGrey active:scale-95 whitespace-nowrap flex items-center space-x-1";
             });
-
             const activeChip = document.getElementById(`chip-${selectedProvince}`);
             if (activeChip) {
                 activeChip.className = "region-chip bg-toss-blue text-white font-extrabold text-xs px-4 py-2.5 rounded-2xl transition shadow-xs active:scale-95 whitespace-nowrap flex items-center space-x-1";
@@ -536,18 +561,16 @@
             closeRegionModal();
         }
 
-        function getGPSLocation() {
-            alert("GPS 현위치 주변의 휴대폰성지를 성공적으로 찾아냈습니다.");
-            selectedProvince = "서울";
-            selectedCity = "관악구";
-            confirmRegion();
-        }
-
         function openModelModal(category) {
+            currentTab = category;
+            selectedModelId = null;
+            updateNextButtonState();
+            
             const modal = document.getElementById('model-modal');
             const container = document.getElementById('model-modal-container');
             modal.classList.remove('opacity-0', 'pointer-events-none');
             container.classList.remove('translate-y-full', 'sm:translate-y-6');
+            
             switchTab(category);
         }
 
@@ -560,62 +583,62 @@
 
         function switchTab(tabName) {
             currentTab = tabName;
-            selectedModelId = null;
-            updateNextButton();
-
-            ['갤럭시', '아이폰', '키즈폰', '중저가'].forEach(tab => {
-                const el = document.getElementById(`tab-${tab}`);
-                if (el) {
-                    el.className = tab === tabName 
-                        ? "pb-2.5 text-toss-blue border-b-2 border-toss-blue whitespace-nowrap transition-colors font-extrabold" 
-                        : "pb-2.5 text-toss-grey border-b-2 border-transparent whitespace-nowrap transition-colors";
+            ['갤럭시', '아이폰', '키즈폰', '중저가'].forEach(t => {
+                const tabEl = document.getElementById(`tab-${t}`);
+                if (tabEl) {
+                    if (t === tabName) {
+                        tabEl.className = "pb-2.5 text-toss-blue border-b-2 border-toss-blue whitespace-nowrap transition-colors";
+                    } else {
+                        tabEl.className = "pb-2.5 text-toss-grey border-b-2 border-transparent whitespace-nowrap transition-colors";
+                    }
                 }
             });
-            renderModels();
+            renderModelList();
         }
 
-        function renderModels() {
-            const listContainer = document.getElementById('model-list');
-            const list = phoneModelsData[currentTab] || [];
-            listContainer.innerHTML = '';
+        function renderModelList() {
+            const container = document.getElementById('model-list');
+            const models = phoneModelsData[currentTab] || [];
+            container.innerHTML = '';
 
-            list.forEach(item => {
-                const isSelected = selectedModelId === item.id;
-                const row = document.createElement('div');
-                row.onclick = () => selectModel(item.id);
-                row.className = `p-3.5 rounded-2xl border flex justify-between items-center cursor-pointer transition-all active:scale-[0.98] ${
-                    isSelected ? 'border-toss-blue bg-toss-lightBlue/40 shadow-sm ring-1 ring-toss-blue' : 'border-toss-border/70 hover:bg-slate-50 bg-white'
+            models.forEach(model => {
+                const isSelected = model.id === selectedModelId;
+                const card = document.createElement('div');
+                card.onclick = () => selectModel(model.id);
+                card.className = `p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between ${
+                    isSelected ? 'border-toss-blue bg-toss-lightBlue/30 shadow-xs' : 'border-toss-border/80 bg-white hover:border-slate-300'
                 }`;
 
-                const tagHtml = item.tag ? `<span class="text-[9px] font-black bg-blue-100 text-toss-blue px-1.5 py-0.5 rounded-md ml-2">${item.tag}</span>` : '';
-
-                row.innerHTML = `
-                    <div class="flex items-center space-x-3.5">
-                        <div class="w-12 h-12 bg-slate-100 rounded-xl p-0.5 flex items-center justify-center shrink-0 border border-slate-100 overflow-hidden">
-                            <img src="${item.img}" alt="${item.name} 성지 가격" class="h-full w-full object-cover rounded-lg" onerror="handleImgError(this)">
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-100">
+                            <img src="${model.img}" alt="${model.name}" class="w-full h-full object-cover" onerror="handleImgError(this)">
                         </div>
-                        <div class="flex items-center">
-                            <span class="font-extrabold text-sm text-toss-dark font-num">${item.name}</span>
-                            ${tagHtml}
+                        <div>
+                            <div class="flex items-center space-x-1.5">
+                                <span class="font-bold text-sm text-toss-dark">${model.name}</span>
+                                ${model.tag ? `<span class="text-[9px] font-extrabold bg-blue-100 text-toss-blue px-1.5 py-0.2 rounded">${model.tag}</span>` : ''}
+                            </div>
+                            <span class="text-[11px] font-medium text-toss-grey">실시간 성지 시세 분석 가능</span>
                         </div>
                     </div>
-                    <div class="w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                        isSelected ? 'bg-toss-blue text-white shadow-sm scale-110' : 'border border-toss-border bg-toss-lightGrey text-transparent'
+                    <div class="w-6 h-6 rounded-full border flex items-center justify-center ${
+                        isSelected ? 'bg-toss-blue border-toss-blue text-white' : 'border-toss-grey/40 text-transparent'
                     }">
-                        <i class="fa-solid fa-check text-[10px]"></i>
+                        <i class="fa-solid fa-check text-xs"></i>
                     </div>
                 `;
-                listContainer.appendChild(row);
+                container.appendChild(card);
             });
         }
 
         function selectModel(id) {
             selectedModelId = id;
-            renderModels();
-            updateNextButton();
+            renderModelList();
+            updateNextButtonState();
         }
 
-        function updateNextButton() {
+        function updateNextButtonState() {
             const btn = document.getElementById('btn-next-step');
             if (selectedModelId) {
                 btn.disabled = false;
@@ -626,14 +649,10 @@
             }
         }
 
-        function handleImgError(imgEl) {
-            const parent = imgEl.parentElement;
-            parent.innerHTML = '<i class="fa-solid fa-mobile-screen text-slate-400 text-xl"></i>';
-        }
-
         function nextStep() {
             if (!selectedModelId) return;
-            alert(`선택완료! 3단계(성지 추천 요금제 및 조건 확인)로 이동합니다.`);
+            alert(`[선택 완료]\n지역: ${selectedProvince} ${selectedCity}\n기종 ID: ${selectedModelId}\n\n성지 시세표 분석 단계로 이동합니다.`);
+            closeModelModal();
         }
     </script>
 </body>
